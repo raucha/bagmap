@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title> ROSBAG Range Picker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+
+<body>
+  <H1> ROSBAG Range Picker</H1>
+  <!--<input type="date" id="dateInput">-->
+  <label for="dateInput">日付:</label>
+<input type="date" id="dateInput">
+  <label for="radius">円の直径（m）:</label>
+  <input type="range" id="radius" min="10" max="300" value="40">
+  <span id="radius-value">40</span> m
+  <br>
+  <br>
+  <div id="map" style="height: 400px; width: 100%;"></div>
+  <button onclick="sendData()">Send Data</button>
+
+  <script>
+      // 今日の日付をYYYY-MM-DD形式で取得
+  const today = new Date().toISOString().split('T')[0];
+
+  // 日付選択フィールドにデフォルト値を設定
+  document.getElementById('dateInput').value = today;
+    // var map = L.map('map').setView([51.505, -0.09], 13);
+    const map = L.map('map').setView([35.4562, 139.6220], 14);
+    //L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // Google Mapsのタイルを設定
+    L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    }).addTo(map);
+
+    var selectedCoords = null;
+    // クリックでマーカーを設定
+    let lastMarker = null;  // 最後のマーカーを保存するための変数
+    let lastCircle = null;
+    const radiusInput = document.getElementById('radius');
+    const radiusValueSpan = document.getElementById('radius-value');
+
+    map.on('click', function (event) {
+
+      // 以前のマーカーがあれば削除
+      if (lastMarker) {
+        map.removeLayer(lastMarker);
+        map.removeLayer(lastCircle);
+      }
+
+      // 新しいマーカーを設定
+      lastMarker = L.marker(event.latlng).addTo(map);
+
+      // 緯度・経度を保存
+      //selectedCoords.lat = event.latlng.lat;
+      //selectedCoords.lng = event.latlng.lng;
+
+      const radius = parseInt(radiusInput.value);
+      lastCircle = L.circle(event.latlng, { radius: radius, color: 'blue', fillOpacity: 0.5 }).addTo(map);
+
+      selectedCoords = event.latlng;
+      console.log('Selected coords:', selectedCoords);
+    });
+
+    // 半径が変更されたときに円も更新
+    // radiusInput.addEventListener('input', () => {
+    //   if (lastCircle) {
+    //     const newRadius = parseInt(radiusInput.value, 10);
+    //     lastCircle.setRadius(newRadius);
+    //   }
+    // });
+
+    // スライダーが変更されたときに円も更新
+    radiusInput.addEventListener('input', () => {
+      const newRadius = parseInt(radiusInput.value, 10);
+      radiusValueSpan.textContent = newRadius;  // スライダーの値を表示
+      if (lastCircle) {
+        lastCircle.setRadius(newRadius);
+      }
+    });
+
+    async function sendData() {
+      console.log('Sending data to server...');
+      var selectedDate = document.getElementById('dateInput').value;
+      console.log('Selected date:', selectedDate);
+      console.log('Selected coords:', selectedCoords);
+      if (selectedDate && selectedCoords) {
+        const response = await fetch('http://localhost:5000/sendData', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            date: selectedDate,
+            latitude: selectedCoords.lat,
+            longitude: selectedCoords.lng,
+            radius: parseInt(radiusInput.value)
+          })
+        });
+
+        const data = await response.json();
+        console.log('Response from server:', data);
+      }
+    }
+  </script>
+</body>
+
+</html>
